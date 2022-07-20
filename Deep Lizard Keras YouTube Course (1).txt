@@ -1,0 +1,692 @@
+#Source:
+# https://www.youtube.com/watch?v=qFJeN9V1ZsI
+
+
+#I ran this on Spyder, so I didn't enter any of the GPU-related lines
+#Also, I entered \\ file file locations instead of the video's /
+#Also, I skipped some of the assert lines
+
+#Note: it's a little tricky using the anaconda interface to load
+#tensorflow,
+#I worked from a file on my desktop... you'll need to adjust for that
+
+
+
+import numpy as np
+from random import randint
+from sklearn.utils import shuffle
+from sklearn.preprocessing import MinMaxScaler
+
+train_labels = []
+train_samples = []
+
+#no side effect: 0, side effect: 1
+
+for i in range(50):
+    random_younger = randint(13, 64)
+    train_samples.append(random_younger)
+    train_labels.append(1)
+    
+    random_older =randint(65, 100)
+    train_samples.append(random_older)
+    train_labels.append(0)
+    
+for i in range(1000):
+    random_younger = randint(13, 64)
+    train_samples.append(random_younger)
+    train_labels.append(0)
+    
+    random_older =randint(65, 100)
+    train_samples.append(random_older)
+    train_labels.append(1)
+    
+for i in train_samples:
+    print(i)
+    
+for i in train_samples:
+    print(i)
+    
+train_labels = np.array(train_labels)
+train_samples = np.array(train_samples)
+train_labels, train_samples = shuffle(train_labels,train_samples)
+
+scaler = MinMaxScaler(feature_range=(0,1))
+scaled_train_samples = scaler.fit_transform(train_samples.reshape(-1,1))
+
+for i in scaled_train_samples:
+    print(i)
+    
+#For notes on Adam, see Geron, p. 356
+#"Adaptive Moment Estimation"
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential 
+from tensorflow.keras.layers import Activation, Dense
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.metrics import categorical_crossentropy
+
+#we don't explicitly define input layer
+#input shape tells model what to expect
+
+model = Sequential([
+  Dense(units=16, input_shape=(1,), activation='relu'),
+  Dense(units=32, activation='relu'),
+  Dense(units=2, activation='softmax')
+])
+
+
+model.summary()
+
+#the next function "gets everything in order" before we train the model
+model.compile(optimizer=Adam(learning_rate=0.0001), 
+                             loss='sparse_categorical_crossentropy',
+                             metrics=['accuracy'])
+
+#training occurs when we call the fit funciton
+model.fit(x=scaled_train_samples,
+         y=train_labels,
+         batch_size=10,
+         epochs=30, 
+         shuffle=True,
+         verbose=2)
+
+#note: you should always shuffle your training data BEFORE 
+#passing it to fit if you're using the validation_split parameter
+#beacuase it take the last 0.X% of the training set
+#note this was done above
+
+model.fit(x=scaled_train_samples,
+         y=train_labels,
+         batch_size=10,
+         epochs=30, 
+         shuffle=True,
+         verbose=2,
+         validation_split=0.1)
+
+#inference: take what you learn in training and apply to new data
+#create a test set
+
+test_labels = []
+test_samples = []
+
+for i in range(10):
+    random_younger = randint(13, 64)
+    test_samples.append(random_younger)
+    test_labels.append(1)
+    
+    random_older =randint(65, 100)
+    test_samples.append(random_older)
+    test_labels.append(0)
+    
+for i in range(200):
+    random_younger = randint(13, 64)
+    test_samples.append(random_younger)
+    test_labels.append(0)
+    
+    random_older =randint(65, 100)
+    test_samples.append(random_older)
+    test_labels.append(1)
+    
+for i in test_samples:
+    print(i)
+    
+for i in test_samples:
+    print(i)
+    
+test_labels = np.array(test_labels)
+test_samples = np.array(test_samples)
+test_labels, test_samples = shuffle(test_labels,test_samples)
+
+scaled_test_samples = scaler.fit_transform(test_samples.reshape(-1,1))
+
+#prediction
+
+predictions = model.predict(x=scaled_test_samples, batch_size=10, verbose=0)
+
+for i in predictions:
+    print(i)
+    
+rounded_predictions = np.argmax(predictions, axis=-1)
+
+for i in rounded_predictions:
+    print(i)
+
+#confusion matrix
+
+%matplotlib inline
+from sklearn.metrics import confusion_matrix
+import itertools
+import matplotlib.pyplot as plt
+
+cm = confusion_matrix(y_true=test_labels,y_pred=rounded_predictions)
+
+#function code source:
+#https://scikit-learn.org/0.18/auto_examples/model_selection/plot_confusion_matrix.html
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, cm[i, j],
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')   
+
+cm_plot_labels = ['no_side_effects','had_side_effects']
+plot_confusion_matrix(cm=cm, classes=cm_plot_labels, title='Confusion Matrix')
+
+#save and load a keras model
+model.summary()
+
+import os
+os.getcwd()
+
+#this save the architecture, weights, training configuration, state of optimzier
+#you can resume training where you left off
+model.save('C:\\Users\\XXXXX\\Desktop\\Python Practice\medical_trial_model.h5')
+
+from tensorflow.keras.models import load_model
+new_model = load_model('C:\\Users\\XXXXX\\Desktop\\Python Practice\medical_trial_model.h5')
+
+new_model.summary()
+new_model.get_weights()
+new_model.optimizer
+
+#what if you only want to save architecure? save to json string
+
+json_string = model.to_json()
+#could also do .to_yaml()
+json_string
+
+from tensorflow.keras.models import model_from_json
+model_architecture = model_from_json(json_string)
+
+#note: could also do this with yaml
+
+model_architecture.summary()
+
+#option to just save the weights
+
+model.save_weights('C:\\Users\\XXXXX\\Desktop\\Python Practice\medical_trial_model_weights.h5')
+
+#you'll need to create a 2nd model (witht the same architecture)
+#and load the weights to it
+
+model2 = Sequential([
+  Dense(units=16, input_shape=(1,), activation='relu'),
+  Dense(units=32, activation='relu'),
+  Dense(units=2, activation='softmax')
+])
+
+model2.load_weights('C:\\Users\\G7CV8\\Desktop\\Python Practice\medical_trial_model_weights.h5')
+model2.get_weights()
+
+
+###############################################################################
+#Convolutional Neural Network #################################################
+#cats vs dogs   ###############################################################
+###############################################################################
+
+
+
+
+#you'll need to create an account to download the zip file
+#https://www.kaggle.com/competitions/dogs-vs-cats/data
+
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Activation, Dense, Flatten, BatchNormalization, Conv2D, MaxPool2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.metrics import categorical_crossentropy
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.metrics import confusion_matrix
+import itertools
+import os
+import shutil
+import random
+import glob
+import matplotlib.pyplot as plt
+import warnings
+warnings.simplefilter(action='ignore',category=FutureWarning)
+%matplotlib inline
+
+#I added this to set the working directory
+os. getcwd()
+#os. chdir('C:\\Users\\XXXXX\\Desktop\\Python Practice')
+
+#organzie data in to train, valid, and test dirs
+
+os.chdir('C:\\Users\\G7CV8\\Desktop\\Python Practice\\data\\dogs-vs-cats')
+if os.path.isdir('train/dog') is False:
+    os.makedirs('train/dog')
+    os.makedirs('train/cat')
+    os.makedirs('valid/dog')
+    os.makedirs('valid/cat')
+    os.makedirs('test/dog')
+    os.makedirs('test/cat')
+    
+   
+    for c in random.sample(glob.glob('cat*'), 500):
+        shutil.move(c, 'train/cat')
+    for c in random.sample(glob.glob('dog*'), 500):
+        shutil.move(c, 'train/dog')
+    for c in random.sample(glob.glob('cat*'), 100):
+        shutil.move(c, 'valid/cat')
+    for c in random.sample(glob.glob('dog*'), 100):
+        shutil.move(c, 'valid/dog')
+    for c in random.sample(glob.glob('cat*'), 50):
+        shutil.move(c, 'test/cat')
+    for c in random.sample(glob.glob('dog*'), 50):
+        shutil.move(c, 'test/dog')
+
+#I'm not sure I need this one
+os.chdir('C:\\Users\\XXXXX\\Desktop\\Python Practice\\')
+
+train_path = 'data/dogs-vs-cats/train'
+valid_path = 'data/dogs-vs-cats/valid'
+test_path = 'data/dogs-vs-cats/test'
+
+
+#put images in the format of keras generator
+#creates batches of data we ca pass to the sequential model
+#resizes the data to a set height & width
+#no shuffle on test b/c we want a confusion matrix, 
+#so we need unshuffled labels
+
+train_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.vgg16.preprocess_input)\
+    .flow_from_directory(directory=train_path,target_size=(224,224),classes=['cat','dog'],batch_size=10)
+valid_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.vgg16.preprocess_input)\
+    .flow_from_directory(directory=valid_path,target_size=(224,224),classes=['cat','dog'],batch_size=10)
+test_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.vgg16.preprocess_input)\
+    .flow_from_directory(directory=test_path,target_size=(224,224),classes=['cat','dog'],batch_size=10, shuffle=False)
+
+assert train_batches.n == 1000
+assert valid_batches.n == 200    
+assert test_batches.n == 100
+assert train_batches.num_classes == valid_batches.num_classes == test_batches.num_classes ==2
+
+#grabs 10 iamges and their corresponding labels
+imgs, labels = next(train_batches)
+
+#https://medium.com/mlait/image-data-augmentation-image-processing-in-tensorflow-part-2-b77237256df0
+
+def plotImages(images_arr):
+    fig, axes = plt.subplots(1, 10, figsize=(20,20))
+    axes = axes.flatten()
+    for img, ax in zip( images_arr, axes):
+        ax.imshow(img)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+plotImages(imgs)
+print(labels)
+
+#colors are distorted due to preprocessing for vgg16 model
+
+#build and train a CNN
+#standard layer, common kernel size for iamges, 
+#input shape is the implicit input layer, conv2d is the first hidden layer, the 
+#3 is the color channel for RGB
+#common practice: increase the number of filters the deeper you go in a model
+#Dense is the output layer
+model = Sequential([
+    Conv2D(filters=32,kernel_size=(3,3),activation='relu',padding='same',input_shape=(224,224,3)),
+    MaxPool2D(pool_size=(2,2), strides=2),
+    Conv2D(filters=64,kernel_size=(3,3),activation='relu',padding='same'),
+    MaxPool2D(pool_size=(2,2), strides=2),
+    Flatten(),
+    Dense(units=2,activation='softmax'), 
+])
+
+model.summary()
+
+#we could have used binary corssentropy, but then we'd have one output layer and a
+#sigmoid activation function
+#categorial crossentropy generalizes better
+model.compile(optimizer=Adam(learning_rate=0.0001),loss='categorical_crossentropy',metrics=['accuracy'])
+
+#note: we don't specifiy y becuase the gnerartor contains the labels
+model.fit(x=train_batches,validation_data=valid_batches, epochs=10, verbose=2)
+
+#predictions
+
+test_imgs, test_labels = next(test_batches)
+plotImages(test_imgs)
+print(test_labels)
+
+#why all cats? becuase when we created the test set we didn't shuffle
+
+test_batches.classes
+
+predictions = model.predict(x=test_batches, verbose=0)
+np.round(predictions)
+
+cm = confusion_matrix(y_true=test_batches.classes, y_pred=np.argmax(predictions, axis=1))
+
+test_batches.class_indices
+
+cm_plot_labels = ['cat','dog']
+#function defined above
+plot_confusion_matrix(cm=cm, classes=cm_plot_labels,title="Confusion Matrix")
+
+#pre-trained model VGG16
+#what did pre-processing do?
+#https://arxiv.org/pdf/1409.1556.pdf
+#see section 2.1
+#see also Geron, p. 470
+#new data must be processed the same way as the training data
+
+#download model
+vgg16_model = tf.keras.applications.vgg16.VGG16()
+
+vgg16_model.summary()
+
+#we need to chagne output layer from 1000 to 2 & other details
+
+type(vgg16_model)
+
+#conert a functional model to a sequential model
+#https://becominghuman.ai/sequential-vs-functional-model-in-keras-20684f766057
+
+model= Sequential()
+for layer in vgg16_model.layers[:-1]:
+    model.add(layer)
+    
+model.summary()
+
+for layer in model.layers:
+    layer.trainable = False
+
+model.add(Dense(units=2, activation='softmax'))
+
+model.summary()
+
+model.compile(optimizer=Adam(learning_rate=0.0001),loss='categorical_crossentropy',metrics=['accuracy'])
+
+
+model.fit(x=train_batches,validation_data=valid_batches,epochs=5,verbose=2)
+
+
+model.save('C:\\Users\\XXXXX\\Desktop\\Python Practice\\vgg_16_transfer_model.h5')
+
+
+from tensorflow.keras.models import load_model
+model = load_model('C:\\Users\\XXXXX\\Desktop\\Python Practice\\vgg_16_transfer_model.h5')
+
+#train the fine-tuned Vgg16 model
+
+predictions = model.predict(x=test_batches, verbose=0)
+
+test_batches.classes #recall this is not shuffled, which helps us pass labels
+
+cm = confusion_matrix(y_true=test_batches.classes, y_pred=np.argmax(predictions,axis=-1))
+
+test_batches.class_indices
+
+cm_plot_labels=['cat','dog']
+plot_confusion_matrix(cm=cm, classes=cm_plot_labels, title='Confusion Matrix')
+
+#that's really good, but cats & dogs were in the oringinal vgg training data
+
+
+############################################################################
+#MobileNet: lightweight, deep CNN
+#small CNNs, often used on mobile devices (fewer parameters, i.e. weights 
+#and biases)
+#trade-off: less accurate
+############################################################################
+
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Activation, Dense, Flatten, BatchNormalization, Conv2D, MaxPool2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.metrics import categorical_crossentropy
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Model
+from tensorflow.keras.applications import imagenet_utils
+from sklearn.metrics import confusion_matrix
+import itertools
+import os
+import shutil
+import random
+import glob
+import matplotlib.pyplot as plt
+import warnings
+warnings.simplefilter(action='ignore',category=FutureWarning)
+%matplotlib inline
+
+mobile = tf.keras.applications.mobilenet.MobileNet()
+
+def prepare_image(file):
+    img_path = 'data\\MobileNet-samples\\'
+    img = image.load_img(img_path + file, target_size=(224,224))
+    img_array = image.img_to_array(img)
+    img_array_expand_dims = np.expand_dims(img_array, axis=0)
+    return tf.keras.applications.mobilenet.preprocess_input(img_array_expand_dims)
+
+from IPython.display import Image
+
+#this are  random images I downloaded and saved as png
+#i looked up the width and height in properties
+
+os.chdir('C:\\Users\\XXXXX\\Desktop\\Python Practice\\')
+Image(filename='data\MobileNet-samples\Latte-Art-069.png',width=800,height=1000)
+#this output isn't as nice in spyder
+
+pre_processed_image = prepare_image('Latte-Art-069.png')
+predictions = mobile.predict(pre_processed_image)
+results = imagenet_utils.decode_predictions(predictions)
+results
+
+pre_processed_image = prepare_image('jlp.png')
+predictions = mobile.predict(pre_processed_image)
+results = imagenet_utils.decode_predictions(predictions)
+results
+
+
+pre_processed_image = prepare_image('hilbert.png')
+predictions = mobile.predict(pre_processed_image)
+results = imagenet_utils.decode_predictions(predictions)
+results
+
+#########################################################################
+#fine tuning mobile net using data it wasn't trained on:
+#sign language images
+#https://github.com/ardamavi/Sign-Language-Digits-Dataset
+#########################################################################
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Activation, Dense, Flatten, BatchNormalization, Conv2D, MaxPool2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.metrics import categorical_crossentropy
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Model
+from tensorflow.keras.applications import imagenet_utils
+from sklearn.metrics import confusion_matrix
+import itertools
+import os
+import shutil
+import random
+import glob
+import matplotlib.pyplot as plt
+import warnings
+warnings.simplefilter(action='ignore',category=FutureWarning)
+%matplotlib inline
+
+# from github https://stackoverflow.com/questions/48658204/tensorflow-failed-call-to-cuinit-cuda-error-no-device
+#trying to remove some of the rror messages
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+
+#need to figure out what's acting funny here
+
+os.chdir("C:\\Users\\XXXXX\\Desktop\\Python Practice\\data\\Sign-Language-Digits-Dataset")
+
+
+if os.path.isdir('train/0/') is False:
+    os.mkdir('train')
+    os.mkdir('valid')
+    os.mkdir('test')
+    
+    for i in range(0,10):
+        shutil.move(f'{i}','train') #moves the class directory into train
+        os.mkdir(f'valid/{i}') #this is making a an empty sub-folder
+        os.mkdir(f'test/{i}')
+        
+        valid_samples = random.sample(os.listdir(f'train/{i}'),30)
+        for j in valid_samples:
+            shutil.move(f'train/{i}/{j}',f'valid/{i}')
+        
+        test_samples = random.sample(os.listdir(f'train/{i}'),5)
+        for k in test_samples:
+            shutil.move(f'train/{i}/{k}',f'test/{i}')
+
+os.chdir("C:\\Users\\XXXXX\\Desktop\\Python Practice\\")
+#pre-process the data
+
+train_path = 'data\\Sign-Language-Digits-Dataset\\train'          
+valid_path = "data\\Sign-Language-Digits-Dataset\\valid"
+test_path = "data\\Sign-Language-Digits-Dataset\\test"            
+
+train_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.mobilenet.preprocess_input).flow_from_directory(
+    directory=train_path, target_size=(224,224),batch_size=10)
+valid_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.mobilenet.preprocess_input).flow_from_directory(
+    directory=valid_path, target_size=(224,224),batch_size=10)
+test_batches = ImageDataGenerator(preprocessing_function=tf.keras.applications.mobilenet.preprocess_input).flow_from_directory(
+    directory=test_path, target_size=(224,224),batch_size=10, shuffle=False)
+
+#now we build and fine-tune the mobile model
+#Note: for some reason I kept getting shape errors on this section
+#so I used an alternative code that I found on 
+#towarddatascience
+#
+#mobile = tf.keras.applications.mobilenet.MobileNet() 
+#for some reason this is not an exact match of the one in the video
+#mobile.summary()
+
+#x = mobile.layers[-6].output
+#output = Dense(units=10, activation ='softmax')(x)
+
+#model = Model(inputs=mobile.input,outputs=output)
+
+#output
+
+#for layer in model.layers[:23]:
+#    layer.trainable = False
+    
+#model.summary()
+
+#model.compile(optimizer=Adam(learning_rate=0.0001),loss='categorical_crossentropy',metrics=['accuracy'])
+
+#model.fit(x=train_batches,validation_data=valid_batches,epochs=10, verbose=2)
+
+#alternative, slightly modified for 10 outputs
+#https://towardsdatascience.com/transfer-learning-using-mobilenet-and-keras-c75daf7ff299
+
+base_model=tf.keras.applications.mobilenet.MobileNet(weights='imagenet',include_top=False) 
+#imports the mobilenet model and discards the last 1000 neuron layer.
+
+x=base_model.output
+x=tf.keras.layers.GlobalAveragePooling2D()(x)
+x=Dense(1024,activation='relu')(x) #we add dense layers so that the model can learn more complex functions and classify for better results.
+x=Dense(1024,activation='relu')(x) #dense layer 2
+x=Dense(512,activation='relu')(x) #dense layer 3
+preds=Dense(10,activation='softmax')(x) #final layer with softmax activation
+
+model=Model(inputs=base_model.input,outputs=preds)
+
+for layer in model.layers[:20]:
+    layer.trainable=False
+for layer in model.layers[20:]:
+    layer.trainable=True
+
+model.compile(optimizer='Adam',loss='categorical_crossentropy',metrics=['accuracy'])
+
+model.fit(x=train_batches,validation_data=valid_batches,epochs=10, verbose=2)
+
+model.summary()
+
+test_labels = test_batches.classes
+predictions = model.predict(x=test_batches,verbose=0)
+
+cm = confusion_matrix(y_true=test_labels, y_pred=predictions.argmax(axis=1))
+test_batches.class_indices
+
+cm_plot_labels = ['0','1','2','3','4','5','6','7','8','9']
+plot_confusion_matrix(cm=cm, classes=cm_plot_labels, title='Confusion Matrix')
+
+
+###############################################################
+### how to use data augmentation on images ####################
+###############################################################
+#see Geron. p. 465
+#growing the training data helps us avoid overfitting
+
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import random
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+%matplotlib inline
+
+#copied from above
+def plotImages(images_arr):
+    fig, axes = plt.subplots(1, 10, figsize=(20,20))
+    axes = axes.flatten()
+    for img, ax in zip( images_arr, axes):
+        ax.imshow(img)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()
+    
+gen = ImageDataGenerator(rotation_range=10, width_shift_range=0.1,
+                         height_shift_range=0.1, shear_range=0.15, zoom_range=0.1,
+                         channel_shift_range=10., horizontal_flip=True)
+
+chosen_image = random.choice(os.listdir('data\\dogs-vs-cats\\train\\dog'))
+
+image_path = 'data\\dogs-vs-cats\\train\\dog\\' + chosen_image
+
+image = np.expand_dims(plt.imread(image_path),0)
+plt.imshow(image[0])
+
+aug_iter = gen.flow(image) #pass gen to flow to create a batch of augmented images
+
+aug_images = [next(aug_iter)[0].astype(np.uint8) for i in range(10)]
+
+plotImages(aug_images)
